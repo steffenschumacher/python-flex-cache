@@ -1,6 +1,5 @@
-from functools import wraps
 from json import dumps, loads
-from base64 import b64encode
+from .basecache import BaseCache, BaseCacheDecorator
 
 
 def get_cache_lua_fn(client):
@@ -54,34 +53,14 @@ def chunks(iterable, n):
         yield elements
 
 
-class RedisCache:
+class RedisCache(BaseCache):
     def __init__(self, redis_client, prefix="rc", serializer=dumps, deserializer=loads):
-        self.client = redis_client
-        self.prefix = prefix
-        self.serializer = serializer
-        self.deserializer = deserializer
-
-    def cache(self, ttl=0, limit=0, namespace=None):
-        return CacheDecorator(
-            redis_client=self.client,
-            prefix=self.prefix,
-            serializer=self.serializer,
-            deserializer=self.deserializer,
-            ttl=ttl,
-            limit=limit,
-            namespace=namespace
-        )
+        super().__init__(RedisCacheDecorator, redis_client, prefix, serializer, deserializer)
 
     def mget(self, *fns_with_args):
-        keys = []
-        for fn_and_args in fns_with_args:
-            fn = fn_and_args['fn']
-            args = fn_and_args['args'] if 'args' in fn_and_args else []
-            kwargs = fn_and_args['kwargs'] if 'kwargs' in fn_and_args else {}
-            keys.append(fn.instance.get_key(args=args, kwargs=kwargs))
-
-        results = self.client.mget(*keys)
-        pipeline = self.client.pipeline()
+        keys = self.mget_keys(*fns_with_args)
+        results = self._cache.mget(*keys)
+        pipeline = self._cache.pipeline()
 
         deserialized_results = []
         needs_pipeline = False
@@ -95,7 +74,7 @@ class RedisCache:
                 kwargs = fn_and_args['kwargs'] if 'kwargs' in fn_and_args else {}
                 result = fn.instance.original_fn(*args, **kwargs)
                 result_serialized = self.serializer(result)
-                get_cache_lua_fn(self.client)(keys=[keys[i], fn.instance.keys_key], args=[result_serialized, fn.instance.ttl, fn.instance.limit], client=pipeline)
+                get_cache_lua_fn(self._cache)(keys=[keys[i], fn.instance.keys_key], args=[result_serialized, fn.instance.ttl, fn.instance.limit], client=pipeline)
             else:
                 result = self.deserializer(result)
             deserialized_results.append(result)
@@ -104,55 +83,25 @@ class RedisCache:
             pipeline.execute()
         return deserialized_results
 
-class CacheDecorator:
+
+class RedisCacheDecorator(BaseCacheDecorator):
     def __init__(self, redis_client, prefix="rc", serializer=dumps, deserializer=loads, ttl=0, limit=0, namespace=None):
-        self.client = redis_client
-        self.prefix = prefix
-        self.serializer = serializer
-        self.deserializer = deserializer
-        self.ttl = ttl
-        self.limit = limit
-        self.namespace = namespace
-        self.keys_key = None
+        super().__init__(redis_client, prefix, serializer, deserializer, ttl, limit, namespace)
 
-    def get_key(self, args, kwargs):
-        serialized_data = self.serializer([args, kwargs])
+    def check_cache(self, key):
+        return self.cache.get(key)
 
-        if not isinstance(serialized_data, str):
-            serialized_data = str(b64encode(serialized_data), 'utf-8')
-        return f'{self.prefix}:{self.namespace}:{serialized_data}'
-
-    def __call__(self, fn):
-        self.namespace = self.namespace if self.namespace else f'{fn.__module__}.{fn.__name__}'
-        self.keys_key = f'{self.prefix}:{self.namespace}:keys'
-        self.original_fn = fn
-
-        @wraps(fn)
-        def inner(*args, **kwargs):
-            nonlocal self
-            key = self.get_key(args, kwargs)
-            result = self.client.get(key)
-            if not result:
-                result = fn(*args, **kwargs)
-                result_serialized = self.serializer(result)
-                get_cache_lua_fn(self.client)(keys=[key, self.keys_key], args=[result_serialized, self.ttl, self.limit])
-            else:
-                result = self.deserializer(result)
-            return result
-
-        inner.invalidate = self.invalidate
-        inner.invalidate_all = self.invalidate_all
-        inner.instance = self
-        return inner
+    def cache_output(self, key, serialized):
+        get_cache_lua_fn(self.cache)(keys=[key, self.keys_key], args=[serialized, self.ttl, self.limit])
 
     def invalidate(self, *args, **kwargs):
         key = self.get_key(args, kwargs)
-        pipe = self.client.pipeline()
+        pipe = self.cache.pipeline()
         pipe.delete(key)
         pipe.zrem(self.keys_key, key)
         pipe.execute()
 
     def invalidate_all(self, *args, **kwargs):
-        chunks_gen = chunks(self.client.scan_iter(f'{self.prefix}:{self.namespace}:*'), 500)
+        chunks_gen = chunks(self.cache.scan_iter(f'{self.prefix}:{self.namespace}:*'), 500)
         for keys in chunks_gen:
-            self.client.delete(*keys)
+            self.cache.delete(*keys)

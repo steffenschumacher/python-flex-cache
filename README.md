@@ -1,10 +1,10 @@
-[![CI](https://github.com/taylorhakes/python-redis-cache/workflows/CI/badge.svg?event=push)](https://github.com/taylorhakes/python-redis-cache/actions?query=event%3Apush+branch%3Amaster+workflow%3ACI)
-[![pypi](https://img.shields.io/pypi/v/python-redis-cache.svg)](https://pypi.python.org/pypi/python-redis-cache)
-[![versions](https://img.shields.io/pypi/pyversions/python-redis-cache.svg)](https://github.com/taylorhakes/python-redis-cache)
-[![license](https://img.shields.io/github/license/taylorhakes/python-redis-cache.svg)](https://github.com/taylorhakes/python-redis-cache/blob/master/LICENSE)
+[![CI](https://github.com/steffenschumacher/python-flex-cache/workflows/CI/badge.svg?event=push)](https://github.com/steffenschumacher/python-flex-cache/actions?query=event%3Apush+branch%3Amaster+workflow%3ACI)
+[![pypi](https://img.shields.io/pypi/v/python-flex-cache.svg)](https://pypi.python.org/pypi/python-flex-cache)
+[![versions](https://img.shields.io/pypi/pyversions/python-redis-cache.svg)](https://github.com/steffenschumacher/python-flex-cache)
+[![license](https://img.shields.io/github/license/steffenschumacher/python-flex-cache.svg)](https://github.com/steffenschumacher/python-flex-cache/blob/master/LICENSE)
 
-# python-redis-cache
-Simple redis cache for Python functions
+# python-flex-cache
+Simple & flexible caching for Python functions backed by either redis, disk or memory
 
 ### Requirements
 - Redis 5+
@@ -12,22 +12,42 @@ Simple redis cache for Python functions
 
 ## How to install
 ```
-pip install python-redis-cache
+pip install python-flex-cache
 ```
 
 ## How to use
+### Initialize through config
 ```python
-from redis import StrictRedis
-from redis_cache import RedisCache
+from flex_cache import init_cache_from_settings
+memcache = init_cache_from_settings({'type': 'MemCache'})
+diskcache = init_cache_from_settings({'type': 'DiskCache', 
+                                      'diskcache_directory': '/tmp'})
+rediscache = init_cache_from_settings({'type': 'RedisCache', 
+                                       'redis_host': 'redis', 
+                                       'redis_username': 'xx', 
+                                       'redis_password': 'yy'})
+```
 
-client = StrictRedis(host="redis", decode_responses=True)
-cache = RedisCache(redis_client=client)
+### Initialize manually
+```python
+from redis import Redis
+from diskcache import Cache as DCache
+from flex_cache import MemCache, DiskCache, RedisCache
 
+memcache = MemCache()
+diskcache = DiskCache(DCache())
+rediscache = RedisCache(redis_client=Redis(host="redis", decode_responses=True))
+```
 
+### Usage
+```python
+from flex_cache import init_cache_from_settings
+cache = init_cache_from_settings({'type': 'MemCache'})
 @cache.cache()
 def my_func(arg1, arg2):
     result = some_expensive_operation()
     return result
+
 
 # Use the function
 my_func(1, 2)
@@ -46,19 +66,22 @@ my_func.invalidate_all()
 Arguments and return types must be JSON serializable by default. You can override the serializer, but be careful with using Pickle. Make sure you understand the security risks. Pickle should not be used with untrusted values.
 https://security.stackexchange.com/questions/183966/safely-load-a-pickle-file
 
-- **ttl** - is based on the time from when it's first inserted in the cache, not based on the last access
-- **limit** - The limit will revoke keys (once it hits the limit) based on FIFO, not based on LRU
+- **ttl** - seconds - based on insertion in the cache - ie. not last access
+- **limit** - *ONLY for redis!* limit will revoke keys (once it hits the limit) based on FIFO, not based on LRU
 
 ## API
 ```python
-RedisCache(redis_client, prefix="rc", serializer=dumps, deserializer=loads)
+from flex_cache.basecache import BaseCache
+from json import loads, dumps
+BaseCache(prefix="rc", serializer=dumps, deserializer=loads)
 
-RedisCache.cache(ttl=None, limit=None, namespace=None)
-
+@BaseCache.cache(ttl=None, limit=None, namespace=None)
+def cached_func(*args, **kwargs):
+    pass  # some costly thing
 # Cached function API
 
-# Returns a cached value, if it exists in cache. Saves value in cache if it doesn't exist
-cached_func(*args, *kwargs)
+# Returns a cached value, if it exists in cache else computes and saves value in cache
+cached_func(*args, **kwargs)
 
 # Invalidates a single value
 cached_func.invalidate(*args, **kwargs)

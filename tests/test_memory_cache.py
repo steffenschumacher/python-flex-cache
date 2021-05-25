@@ -1,27 +1,21 @@
 import uuid
 import time
 
-from redis import StrictRedis
-from flex_cache import RedisCache
+from flex_cache import MemCache
 
 import pickle
 import pytest
 import zlib
 
 
-redis_host = "redis-test-host"
-client = StrictRedis(host=redis_host, decode_responses=True)
-client_no_decode = StrictRedis(host=redis_host)
-
-
 @pytest.fixture(scope="session", autouse=True)
 def clear_cache(request):
-    client.flushall()
+    pass
 
 
 @pytest.fixture()
 def cache():
-    return RedisCache(redis_client=client)
+    return MemCache()
 
 
 def add_func(n1, n2):
@@ -63,32 +57,13 @@ def test_ttl(cache):
 
 
 def test_limit(cache):
-    @cache.cache(limit=2)
-    def add_limit(arg1, arg2):
-        return add_func(arg1, arg2)
-
-    r_3_4, v_3_4 = add_limit(3, 4)
-    # cache_queue [add_limit(3, 4)]
-
-    r_5_5, v_5_5 = add_limit(5, 5)
-    # cache_queue [add_limit(3, 4), add_limit(5, 5)]
-
-    r_6_5, v_6_5 = add_limit(6, 5)  # limit hitted rotating
-    # cache_queue [add_limit(5, 5), add_limit(6, 5)]
-
-    r2_3_4, v2_3_4 = add_limit(3, 4)  # new cache generated
-    # cache_queue [add_limit(6, 5), add_limit(3, 4)]
-
-    # cache was rotated the first call needed to be re-executed/re-cached
-    assert r_3_4 == r2_3_4 and v_3_4 != v2_3_4
-
-    r2_6_5, v2_6_5 = add_limit(6, 5)  # still cached
-    # cache_queue [add_limit(6, 5), add_limit(3, 4)]
-    assert r_6_5 == r2_6_5 and v_6_5 == v2_6_5
-
-    r3_3_4, v3_3_4 = add_limit(3, 4)  # still cached
-    # cache_queue [add_limit(6, 5), add_limit(3, 4)]
-    assert r2_3_4 == r3_3_4 and v2_3_4 == v3_3_4
+    try:
+        @cache.cache(limit=2)
+        def add_limit(arg1, arg2):
+            return add_func(arg1, arg2)
+        pytest.fail('Limit is not supported with memcache')
+    except ValueError as ve:
+        pass
 
 
 def test_invalidate_not_in_cache(cache):
@@ -130,7 +105,7 @@ def test_invalidate_in_cache(cache):
 
 
 def test_invalidate_all():
-    cache = RedisCache(redis_client=client)
+    cache = MemCache()
 
     @cache.cache()
     def f1_invalidate_all(arg1, arg2):
@@ -171,11 +146,7 @@ class Arg:
 
 
 def test_custom_serializer():
-    cache = RedisCache(
-        redis_client=client_no_decode,
-        serializer=pickle.dumps,
-        deserializer=pickle.loads,
-    )
+    cache = MemCache(serializer=pickle.dumps, deserializer=pickle.loads)
 
     @cache.cache()
     def add_custom_serializer(arg1, arg2):
@@ -194,9 +165,7 @@ def test_custom_serializer_with_compress():
     def loads(value):
         return pickle.loads(zlib.decompress(value))
 
-    cache = RedisCache(
-        redis_client=client_no_decode, serializer=dumps, deserializer=loads,
-    )
+    cache = MemCache(serializer=dumps, deserializer=loads,)
 
     @cache.cache()
     def add_compress_serializer(arg1, arg2):
@@ -213,6 +182,7 @@ def test_basic_mget(cache):
     def add_basic_get(arg1, arg2):
         return add_func(arg1, arg2)
 
+    r1_3_4, v1_3_4 = add_basic_get(3, 4)
     r_3_4, v_3_4 = cache.mget({"fn": add_basic_get, "args": (3, 4)})[0]
     r2_3_4, v2_3_4 = add_basic_get(3, 4)
 
