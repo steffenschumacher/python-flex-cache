@@ -25,13 +25,11 @@ class NoCacheDecorator(BaseCacheDecorator):
         return inner
 
     def check_cache(self, key):
-        raise NotImplementedError('Not valid for NoCache')
+        return None
 
     def cache_output(self, key, serialized):
-        raise NotImplementedError('Not valid for NoCache')
-
-    def invalidate(self, *args, **kwargs):
         pass
 
-    def invalidate_all(self, *args, **kwargs):
+    def invalidate_key(self, key):
         pass
+

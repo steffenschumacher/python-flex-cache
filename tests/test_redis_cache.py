@@ -128,6 +128,9 @@ def test_invalidate_in_cache(cache):
     # 4, 4 was invalidated a new verifier should be generated
     assert r_4_4 == r2_4_4 and v_4_4 != v2_4_4
 
+    # test invalidation of non-existing entry is benign
+    add_invalidate_in_cache.invalidate(88, 99)
+
 
 def test_invalidate_all():
     cache = RedisCache(redis_client=client)
@@ -217,3 +220,22 @@ def test_basic_mget(cache):
     r2_3_4, v2_3_4 = add_basic_get(3, 4)
 
     assert r_3_4 == r2_3_4 and v_3_4 == v2_3_4
+
+
+def test_basecache_setget(cache):
+    cache.set('setget', 'basic', namespace='base')
+    assert 'basic' == cache.get('setget', namespace='base')
+
+
+def test_basecache_ttl(cache):
+    cache.set('setget', 'basic', ttl=1, namespace='base')
+    time.sleep(2)
+    assert cache.get('setget', namespace='base') is None
+
+
+def test_basecache_invalidate(cache):
+    cache.set('setget', 'basic', ttl=3600, namespace='base')
+    cache.set('setget2', 'basic2', ttl=3600, namespace='base')
+    cache.invalidate('setget', namespace='base')
+    assert cache.get('setget', namespace='base') is None
+    assert cache.get('setget2', namespace='base') == 'basic2'

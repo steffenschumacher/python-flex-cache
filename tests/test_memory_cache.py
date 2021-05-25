@@ -187,3 +187,20 @@ def test_basic_mget(cache):
     r2_3_4, v2_3_4 = add_basic_get(3, 4)
 
     assert r_3_4 == r2_3_4 and v_3_4 == v2_3_4
+
+
+def test_basecache_setget(cache):
+    cache.set('setget', 'basic', namespace='base')
+    assert 'basic' == cache.get('setget', namespace='base')
+
+
+def test_basecache_ttl(cache):
+    cache.set('setget', 'basic', ttl=1, namespace='base')
+    time.sleep(2)
+    assert cache.get('setget', namespace='base') is None
+
+
+def test_basecache_invalidate(cache):
+    cache.set('setget', 'basic', ttl=3600, namespace='base')
+    cache.invalidate('setget', namespace='base')
+    assert cache.get('setget', namespace='base') is None

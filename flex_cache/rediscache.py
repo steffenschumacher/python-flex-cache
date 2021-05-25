@@ -94,8 +94,7 @@ class RedisCacheDecorator(BaseCacheDecorator):
     def cache_output(self, key, serialized):
         get_cache_lua_fn(self.cache)(keys=[key, self.keys_key], args=[serialized, self.ttl, self.limit])
 
-    def invalidate(self, *args, **kwargs):
-        key = self.get_key(args, kwargs)
+    def invalidate_key(self, key):
         pipe = self.cache.pipeline()
         pipe.delete(key)
         pipe.zrem(self.keys_key, key)

@@ -12,6 +12,7 @@ import zlib
 def clear_cache(request):
     pass
 
+
 @pytest.fixture()
 def cache():
     return NoCache()
@@ -154,7 +155,7 @@ def test_custom_serializer_with_compress():
     def loads(value):
         return pickle.loads(zlib.decompress(value))
 
-    cache = NoCache(serializer=dumps, deserializer=loads,)
+    cache = NoCache(serializer=dumps, deserializer=loads, )
 
     @cache.cache()
     def add_compress_serializer(arg1, arg2):
@@ -178,3 +179,13 @@ def test_basic_mget(cache):
     except NotImplementedError as nie:
         pass
 
+
+def test_basecache_setget(cache):
+    cache.set('setget', 'basic', namespace='base')
+    assert cache.get('setget', namespace='base') is None
+
+
+def test_basecache_invalidate(cache):
+    cache.set('setget', 'basic', ttl=3600, namespace='base')
+    cache.invalidate('setget', namespace='base')
+    assert cache.get('setget', namespace='base') is None

@@ -70,10 +70,11 @@ class MemCacheDecorator(BaseCacheDecorator):
     def cache_output(self, key, serialized):
         self.cache.set(key, serialized, self.ttl)
 
-    def invalidate(self, *args, **kwargs):
-        key = self.get_key(args, kwargs)
-        if key in self.cache:
+    def invalidate_key(self, key):
+        try:
             del self.cache[key]
+        except KeyError:
+            pass  # already invalidated..
 
     def invalidate_all(self, *args, **kwargs):
         if not self.namespace or not self.cache:

@@ -26,6 +26,32 @@ class BaseCache:
     def mget(self, *fns_with_args):
         raise NotImplementedError('Must be implemented in derived classes')
 
+    def _key(self, key, namespace=None):
+        if not isinstance(key, str):
+            key = str(b64encode(key), 'utf-8')
+        if namespace:
+            return f'{self.prefix}:{namespace}:{key}'
+        else:
+            return f'{self.prefix}:{key}'
+
+    def get(self, key, namespace=None):
+        serialized = self.cache(namespace=namespace).check_cache(self._key(key, namespace))
+        if serialized:
+            return self.deserializer(serialized)
+        else:
+            return None
+
+    def set(self, key, value, ttl=0, limit=0, namespace=None):
+        serialized = self.serializer(value)
+        deco = self.cache(ttl, limit, namespace)
+        deco.keys_key = self._key('keys', namespace=namespace)
+        return deco.cache_output(self._key(key, namespace), serialized)
+
+    def invalidate(self, key, namespace=None):
+        deco = self.cache(namespace=namespace)
+        deco.keys_key = self._key('keys', namespace=namespace)
+        deco.invalidate_key(self._key(key, namespace))
+
 
 class BaseCacheDecorator:
     def __init__(self, cache, prefix='rc', serializer=dumps, deserializer=loads, ttl=0, limit=0, namespace=None):
@@ -74,9 +100,19 @@ class BaseCacheDecorator:
     def cache_output(self, key, serialized):
         raise NotImplementedError('Must be implemented in derived classes')
 
-    def invalidate(self, *args, **kwargs):
+    def invalidate_key(self, key):
         raise NotImplementedError('Must be implemented in derived classes')
 
+    def invalidate(self, *args, **kwargs):
+        key = self.get_key(args, kwargs)
+        self.invalidate_key(key)
+        if key in self.cache:
+            self.invalidate_key(key)
+
     def invalidate_all(self, *args, **kwargs):
-        raise NotImplementedError('Must be implemented in derived classes')
+        if not self.namespace or not self.cache:
+            return
+        key_prefix = f'{self.prefix}:{self.namespace}:'
+        for k in [k for k in self.cache if k.startswith(key_prefix)]:
+            self.invalidate_key(k)
 
