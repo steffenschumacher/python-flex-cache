@@ -45,7 +45,7 @@ from flex_cache import init_cache_from_settings
 cache = init_cache_from_settings({'type': 'MemCache'})
 @cache.cache()
 def my_func(arg1, arg2):
-    result = some_expensive_operation()
+    result = 123+456  # or some expensive function  
     return result
 
 
