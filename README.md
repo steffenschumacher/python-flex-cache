@@ -1,8 +1,7 @@
-[![CI](https://github.com/steffenschumacher/python-flex-cache/workflows/CI/badge.svg?event=push)](https://github.com/steffenschumacher/python-flex-cache/actions?query=event%3Apush+branch%3Amaster+workflow%3ACI)
+[![CI](https://github.com/steffenschumacher/python-flex-cache/actions/workflows/CI.yml/badge.svg?branch=master&event=push)](https://github.com/steffenschumacher/python-flex-cache/actions/workflows/CI.yml)
 [![pypi](https://img.shields.io/pypi/v/python-flex-cache.svg)](https://pypi.python.org/pypi/python-flex-cache)
-[![versions](https://img.shields.io/pypi/pyversions/python-redis-cache.svg)](https://github.com/steffenschumacher/python-flex-cache)
+[![versions](https://img.shields.io/pypi/pyversions/python-flex-cache.svg)](https://github.com/steffenschumacher/python-flex-cache)
 [![license](https://img.shields.io/github/license/steffenschumacher/python-flex-cache.svg)](https://github.com/steffenschumacher/python-flex-cache/blob/master/LICENSE)
-
 # python-flex-cache
 Simple & flexible caching for Python functions backed by either redis, disk or memory
 
