@@ -1,6 +1,7 @@
 from .rediscache import RedisCache
 from .memcache import MemCache
 from .diskcache import DiskCache
+from .nocache import NoCache
 
 DEFAULT_SETTINGS = {
     'type': 'MemCache',
@@ -54,5 +55,7 @@ def init_cache_from_settings(settings):
         from redis import Redis
         client = Redis(**redis_kwargs)
         return RedisCache(client, **common_kwargs)
+    elif merged['type'] == 'NoCache':
+        return NoCache()
     else:
         raise ValueError('Unsupported caching type: {}'.format(merged['type']))
