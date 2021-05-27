@@ -79,5 +79,6 @@ class MemCacheDecorator(BaseCacheDecorator):
     def invalidate_all(self, *args, **kwargs):
         if not self.namespace or not self.cache:
             return
-        for k in [k for k in self.cache if self.namespace in k]:
+        obsolete = [k for k, v in self.items() if v and v.expired()]
+        for k in obsolete:
             del self.cache[k]
