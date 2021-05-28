@@ -26,11 +26,12 @@ class CachedDict(dict):
         self.prune_operations = 50
 
     def _prune_if(self):
-        self.operations +=1
+        self.operations += 1
         if self.operations < self.prune_operations:
             return
         self.operations = 0
-        for k in [k for k,v in self.items() if v.expired()]:
+        obsolete = [k for k, v in self.items() if v and v.expired()]
+        for k in obsolete:
             del self[k]
 
     def get(self, key):
@@ -79,6 +80,6 @@ class MemCacheDecorator(BaseCacheDecorator):
     def invalidate_all(self, *args, **kwargs):
         if not self.namespace or not self.cache:
             return
-        obsolete = [k for k, v in self.items() if v and v.expired()]
-        for k in obsolete:
+        invalidated = [k for k in self.cache if self.namespace in k]
+        for k in invalidated:
             del self.cache[k]
