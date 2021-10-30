@@ -204,3 +204,39 @@ def test_basecache_invalidate(cache):
     cache.set('setget', 'basic', ttl=3600, namespace='base')
     cache.invalidate('setget', namespace='base')
     assert cache.get('setget', namespace='base') is None
+
+
+def test_cacheddict():
+    from flex_cache.memcache import CachedDict, CachedItem
+    from concurrent.futures import ThreadPoolExecutor
+    from random import randrange
+    from time import time
+    qty = 180000
+    cd = CachedDict(prune_threshold=50)
+    with ThreadPoolExecutor(10) as tp:
+        def add_stuff():
+            cd.set(randrange(40), 1, 1)
+
+        def get_stuff():
+            cd.get(randrange(40000))
+
+        t1 = time()
+        cd.set("steffen", 2, 1)
+        for x in range(qty):
+            tp.submit(add_stuff)
+            #tp.submit(get_stuff)
+
+        tp.shutdown()
+        t2 = time()
+        d = t2-t1
+        prms = qty/(d*1000.0)
+        print(f'executed {qty} threaded inserts in {d:.2f} seconds - ie. {prms:.2f}/ms')
+        expired = 0
+        for k, v in cd.items():
+            if not isinstance(v, CachedItem):
+                continue
+            if v.expired():
+                expired +=1
+                continue
+                print(f'{k}: {v} vs {time()} - {v.expired()}')
+        print(f'cd has {len(cd)} records of which {expired} are expired')
