@@ -48,7 +48,7 @@ class CachedDict(dict):
                 del self[k]
 
     def get(self, key):
-        val = self.get(key)
+        val = super(CachedDict, self).get(key)
         if not val:
             return None
         elif val.expired():

@@ -7,7 +7,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='python-flex-cache',
-      version='0.1.7',
+      version='0.1.8',
       description='Basic Redis/Disk/Memory caching for functions',
       long_description=long_description,
       long_description_content_type='text/markdown',
