@@ -28,6 +28,40 @@ def add_func(n1, n2):
     return n1 + n2, str(uuid.uuid4())
 
 
+def test_member_caching(cache):
+    class Dummy(object):
+        def __init__(self, arg):
+            self.data = arg
+            self.calls = 0
+
+        @cache.cache(10)
+        def generate_data(self, arg1, arg2, kwarg1=None):
+            self.calls += 1
+            return self.data * arg1 * arg2 * 1 if kwarg1 is None else kwarg1
+
+    d = Dummy(time.time() % 60)
+    first = d.generate_data(1, 2, kwarg1=3)
+    cached = d.generate_data(1, 2, kwarg1=3)
+    assert d.calls == 1
+    assert first == cached
+
+
+def test_classmethod_caching(cache):
+    class Dummy(object):
+        cdata = 10
+        calls = 0
+        @classmethod
+        @cache.cache(10)
+        def generate_data(cls, arg1, arg2, kwarg1=None):
+            cls.calls += 1
+            return cls.cdata * arg1 * arg2 * 1 if kwarg1 is None else kwarg1
+
+    first = Dummy.generate_data(1, 2, kwarg1=3)
+    cached = Dummy.generate_data(1, 2, kwarg1=3)
+    assert Dummy.calls == 1
+    assert first == cached
+
+
 def test_basic_check(cache):
     @cache.cache()
     def add_basic(arg1, arg2):

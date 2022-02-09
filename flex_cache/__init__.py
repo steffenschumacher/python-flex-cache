@@ -21,12 +21,19 @@ DEFAULT_SETTINGS = {
 
 
 def _load_func(text):
-    from re import match
-    m = match(r'^([a-z].*)\.([\w_]+)$', text)
-    if not m:
-        raise ValueError('\'{}\' is not a valid module.method string?'.format(text))
-    module = __import__(m.group(1))
-    return getattr(module, m.group(2))
+    if isinstance(text, str):
+        from re import match
+        m = match(r'^([a-z].*)\.([\w_]+)$', text)
+        if not m:
+            raise ValueError('\'{}\' is not a valid module.method string?'.format(text))
+        components = text.split('.')
+
+        module = __import__(components[0])
+        for mod in components[1:]:
+            module = getattr(module, mod)
+        return module
+    elif callable(text):
+        return text
 
 
 def init_cache_from_settings(settings):

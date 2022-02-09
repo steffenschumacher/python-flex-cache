@@ -1,4 +1,5 @@
 from functools import wraps
+import inspect
 from json import dumps, loads
 from base64 import b64encode
 
@@ -65,6 +66,7 @@ class BaseCacheDecorator:
         self.keys_key = None
 
     def get_key(self, args, kwargs):
+        args = self.filter_pos_args(args)
         serialized_data = self.serializer([args, kwargs])
 
         if not isinstance(serialized_data, str):
@@ -75,6 +77,7 @@ class BaseCacheDecorator:
         self.namespace = self.namespace if self.namespace else f'{fn.__module__}.{fn.__name__}'
         self.keys_key = f'{self.prefix}:{self.namespace}:keys'
         self.original_fn = fn
+        self.original_argspec = inspect.getfullargspec(fn)
 
         @wraps(fn)
         def inner(*args, **kwargs):
@@ -115,4 +118,15 @@ class BaseCacheDecorator:
         key_prefix = f'{self.prefix}:{self.namespace}:'
         for k in [k for k in self.cache if k.startswith(key_prefix)]:
             self.invalidate_key(k)
+
+    def filter_pos_args(self, args):
+        if self.original_argspec.args:
+            specargs = self.original_argspec.args
+            if specargs[0] in ['self', 'cls'] and not isinstance(args[0], (int, float, str, list, dict, set)):
+                """
+                If first arg is an object named self or cls and not a built in type, 
+                then use its string representation to build the key..
+                """
+                return tuple(str(args[i]) if i == 0 else args[i] for i in range(len(args)))
+        return args
 
